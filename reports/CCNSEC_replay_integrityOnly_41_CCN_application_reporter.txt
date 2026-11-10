@@ -1,0 +1,14 @@
+WebApp stats for scenario CCNSEC_replay_integrityOnly_41
+sim_time: 43200.1000
+
+oppo_cahce_hit: 548
+oppo_cache_miss: 3583
+drop_list:  0
+drop_pit:  768
+drop_nonce:  47
+query_count: 383
+duplicated_query: 217
+static_cache_hit: 138
+static_cache_miss: 122
+response_count: 332
+average_interval: 1477

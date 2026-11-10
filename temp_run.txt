@@ -1,0 +1,105 @@
+# This configuration file adds Ping application for all the nodes and 
+# a report module that counts the number of pings & pongs sent & received
+#############################	Consumer   ####################################
+# Define new application
+myApp.type = RUI_application
+myApp.mode = 1
+myApp.cacheCapacity = 5000
+myApp.seedQuery = 12
+myApp.pingSize = 50 
+
+#myApp.interval = 42
+myApp.interval = 500
+#num of msg to generate for each consumer
+myApp.numOfMsgToGenerate = 20
+myApp.queryRange = 1,100
+
+myApp.staticCacheCapacity = 20
+myApp.staticCacheRange = 1,100 
+myApp.seedStaticCache = 36
+
+#distribution type, 1 for random, 2 for ZipF
+myApp.queryDistribution = 2
+
+
+# $1 for static cache, $2 for oppo cache
+myApp.avaCache = 0,1
+# initial maximum carried content of one msg
+myApp.maxCarriedContent = 1
+# Set consumer group
+Group1.nrofApplications = 1
+Group1.application1 = myApp
+Group1.nrofHosts = 5
+
+#############################	Producer    ###################################
+Producer.type = RUI_application
+Producer.cacheCapacity = 5000
+Producer.mode = 2
+# $1 for static cache, $2 for oppo cache
+Producer.avaCache = 1,1
+# initial maximum carried content of one msg
+Producer.maxCarriedContent = 1
+
+
+Producer.staticCacheCapacity = 20
+Producer.staticCacheRange = 1,100 
+Producer.seedStaticCache = 36
+
+# Set producer group
+Group2.nrofApplictions = 1
+Group2.application1 = Producer
+Group2.nrofHosts = 10
+#############################	Intermedia   ##################################
+Intermedia.type = RUI_application
+Intermedia.cacheCapacity = 500
+Intermedia.mode = 3
+# $1 for static cache, $2 for oppo cache
+Intermedia.avaCache = 0,1
+# initial maximum carried content of one msg
+Intermedia.maxCarriedContent = 1
+
+
+#Intermedia.destinationRange = 5, 14
+Intermedia.staticCacheCapacity = 10
+Intermedia.staticCacheRange = 1,1000 
+Intermedia.seedStaticCache = 36
+
+# Set producer group
+Group3.nrofApplictions = 1
+Group3.application1 = Intermedia
+Group3.nrofHosts = 35
+############################    Global setting    #############################
+Scenario.endTime = 86400
+Scenario.nrofHostGroups = 3
+
+# Add report for my app
+Report.nrofReports = 2
+Report.report2 = RUI_application_reporter
+Report.report3 = MessageStatsReport
+
+#1
+#Group.router = EPpSWRouter
+#EPpSWRouter.nrofCopies = 10
+#EPpSWRouter.binaryMode = true
+
+#2
+#Group.router = EpidemicRouter
+
+#3
+Group.router = SprayAndWaitRouter
+SprayAndWaitRouter.nrofCopies = 10
+SprayAndWaitRouter.binaryMode = true
+
+#4
+#Group.router = ProphetRouter
+#ProphetRouter.secondsInTimeUnit = 30
+
+#5
+#Group.router = MaxPropRouter 
+
+
+#Movement model's pseudo random number generator (default = 0)
+#If simulation run in batch mode for 5 times, the movement model using the following seed
+MovementModel.rngSeed = 9
+Group.bufferSize = 200M
+#[100M;150M;200M;250M;300M]

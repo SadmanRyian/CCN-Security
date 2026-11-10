@@ -1,0 +1,136 @@
+# This configuration file adds CCN application for all the nodes and 
+# a report module that counts the number of interests sent and received 
+# corresponding response 
+
+
+######################	Consumer (sending interests)   ###############
+# Define new application
+
+Consumer.type = RUI_application
+Consumer.mode = 1
+Consumer.cacheCapacity = 5000
+Consumer.seedQuery = 12
+Consumer.pingSize = 50 
+
+#Consumer.interval = 42
+Consumer.interval = 100
+#num of msg to generate for each consumer
+Consumer.numOfMsgToGenerate = 20
+Consumer.queryRange = 1,100
+
+#Consumer.staticCacheCapacity = 20
+#Consumer.staticCacheRange = 1,100 
+#Consumer.seedStaticCache = 36
+
+#distribution type, 1 for random, 2 for ZipF
+Consumer.queryDistribution = [2;1]
+
+
+# $1 for static cache, $2 for oppo cache
+Consumer.avaCache = 0,1
+# initial maximum carried content of one msg
+Consumer.maxCarriedContent = 1
+# Set consumer group
+Consumer.enablePIT = false
+Group1.nrofApplications = 1
+Group1.application1 = Consumer
+Group1.nrofHosts = 5
+
+#############################	Producer    ###################################
+Producer.type = RUI_application
+Producer.cacheCapacity = 5000
+Producer.mode = 2
+# $1 for static cache, $2 for oppo cache
+Producer.avaCache = 1,1
+# initial maximum carried content of one msg
+Producer.maxCarriedContent = 1
+
+
+Producer.staticCacheCapacity = 50
+#{5, 10, 15, 20, 25, 30, 35, 40, 45, 50}
+Producer.staticCacheRange = 1,100 
+Producer.seedStaticCache = 36
+
+# Set producer group
+Producer.enablePIT = false 
+Group2.nrofApplictions = 1
+Group2.application1 = Producer
+Group2.nrofHosts = 10
+#[1;3;5;7;9;11;13;15]
+#10
+#############################	Intermedia   ##################################
+Intermedia.type = RUI_application
+Intermedia.cacheCapacity = 500
+Intermedia.mode = 3
+# $1 for static cache, $2 for oppo cache
+Intermedia.avaCache = 0,1
+# initial maximum carried content of one msg
+Intermedia.maxCarriedContent = 1
+
+
+#Group3.movementModel = WorkingDayMovement
+#Group.busControlSystemNr = 8
+#Group3.busControlSystemNr = 50
+#Group3.ownCarProb = 0.2
+#Group3.shoppingControlSystemNr = 50
+#Group.nrOfOffices = 20
+#Group3.nrOfOffices = 50
+#Group3.nrOfMeetingSpots = 2
+#Group3.workDayLength = 28800
+
+
+#Group3.meetingSpotsFile = data/HelsinkiMedium/A_meetingspots.wkt
+#Group3.officeLocationsFile = data/HelsinkiMedium/A_offices.wkt
+#Group3.homeLocationsFile = data/HelsinkiMedium/A_homes.wkt
+
+#Intermedia.destinationRange = 5, 14
+#Intermedia.staticCacheCapacity = 10
+#Intermedia.staticCacheRange = 1,1000 
+#Intermedia.seedStaticCache = 36
+
+# Set producer group
+Intermedia.enablePIT = false
+Group3.nrofApplictions = 1
+Group3.application1 = Intermedia
+Group3.nrofHosts = 35
+############################    Global setting    #############################
+Scenario.endTime = 86400
+Scenario.nrofHostGroups = 3
+
+# Add report for my app
+Report.nrofReports = 2
+Report.report2 = RUI_application_reporter
+Report.report3 = MessageStatsReport
+
+#1
+#Group.router = EPpSWRouter
+#EPpSWRouter.nrofCopies = 10
+#EPpSWRouter.binaryMode = true
+
+#2
+Group.router = EpidemicRouter
+
+#3
+#Group.router = SprayAndWaitRouter
+#SprayAndWaitRouter.nrofCopies = 10
+#SprayAndWaitRouter.binaryMode = true
+
+#4
+#Group.router = ProphetRouter
+#ProphetRouter.secondsInTimeUnit = 30
+
+#5
+#Group.router = MaxPropRouter 
+
+#6
+#Group.router = FirstContactRouter
+
+#Movement model's pseudo random number generator (default = 0)
+#If simulation run in batch mode for 5 times, the movement model using the following seed
+MovementModel.rngSeed = [ 1; 3; 5; 7; 9]
+Group.bufferSize = 64M
+#[1M;2M;4M;8M;16M;32M;64M;128M]
+
+Group.msgTtl = 500
+#50, 100, 150, 200, 250, 300, 350, 400, 450, 500
+

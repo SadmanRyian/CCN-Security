@@ -1,0 +1,14 @@
+1)$./compile.bat	#compible ONE simulator;
+2)$./one.sh configuration_file.txt	#run ONE with specific configuration file;
+3)General Steps
+	Below are the steps that we will be following to perform our simulation. In fact, these are some steps that every simulation would involve. 
+		a.Specify the general settings for the scenario to be simulated
+		b.Specify the network interface(s) of the nodes
+		c.Create a group of nodes
+		d.Specify the motion patterns
+		e.Specify the traffic pattern
+		f.Specify a set of reports to be generated
+4)In vim, :%s/foo/bar/gci	#replace "foo" with "bar" and ask everytime to confirm
+
+
+

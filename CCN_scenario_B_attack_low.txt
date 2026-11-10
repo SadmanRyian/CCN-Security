@@ -1,0 +1,160 @@
+# === SCENARIO B: ONE ATTACKER, LOW RATE ===
+# Run with: ./one.sh default_settings.txt CCN_scenario_B_attack_low.txt
+# Differs from Scenario A ONLY by the addition of Group13 (attacker) below
+# and Scenario.nrofHostGroups (12 -> 13).
+
+#############################	Producer    ###################################
+
+Producer.type = CCN_application
+Producer.cacheCapacity = 5000
+Producer.mode = 2
+Producer.avaCache = 1,1
+Producer.maxCarriedContent = 1
+Producer.staticCacheCapacity = 50
+Producer.staticCacheRange = 1,100
+Producer.seedStaticCache = 36
+Producer.enablePIT = true
+Producer.pitCapacity = 100
+Producer.interestLifetime = 3600
+
+Group1.nrofApplications = 1
+Group1.application1 = Producer
+Group1.nrofHosts = 15
+
+Group2.nrofApplications = 1
+Group2.application1 = Producer
+Group2.nrofHosts = 15
+
+Group3.nrofApplications = 1
+Group3.application1 = Producer
+Group3.nrofHosts = 1
+
+Group4.nrofApplications = 1
+Group4.application1 = Producer
+Group4.nrofHosts = 1
+
+Group5.nrofApplications = 1
+Group5.application1 = Producer
+Group5.nrofHosts = 1
+
+Group12.nrofApplications = 1
+Group12.application1 = Producer
+Group12.nrofHosts = 15
+
+
+#############################	Consumer   ####################################
+
+Consumer.type = CCN_application
+Consumer.mode = 1
+Consumer.cacheCapacity = 5000
+Consumer.seedQuery = 12
+Consumer.interestSize = 50
+Consumer.interval = 100
+Consumer.numOfMsgToGenerate = 20
+Consumer.queryRange = 1,100
+Consumer.queryDistribution = 2
+Consumer.avaCache = 0,1
+Consumer.maxCarriedContent = 1
+Consumer.enablePIT = true
+Consumer.pitCapacity = 100
+Consumer.interestLifetime = 3600
+
+Group6.nrofApplications = 1
+Group6.application1 = Consumer
+Group6.nrofHosts = 20
+
+Group11.nrofApplications = 1
+Group11.application1 = Consumer
+Group11.nrofHosts = 10
+
+
+#######################	Intermediate relay node ##################################
+
+Intermedia.type = CCN_application
+Intermedia.cacheCapacity = 500
+Intermedia.mode = 3
+Intermedia.avaCache = 0,1
+Intermedia.maxCarriedContent = 1
+Intermedia.enablePIT = true
+Intermedia.pitCapacity = 100
+Intermedia.interestLifetime = 3600
+
+Group7.nrofApplications = 1
+Group7.application1 = Intermedia
+Group7.nrofHosts = 10
+
+Group8.nrofApplications = 1
+Group8.application1 = Intermedia
+Group8.nrofHosts = 10
+
+Group9.nrofApplications = 1
+Group9.application1 = Intermedia
+Group9.nrofHosts = 20
+
+Group10.nrofApplications = 1
+Group10.application1 = Intermedia
+Group10.nrofHosts = 10
+
+
+############################    Global setting    #############################
+Scenario.name = IFA_attack_low_%%Group.router%%_%%MovementModel.rngSeed%%
+Scenario.endTime = 43200
+Scenario.nrofHostGroups = 13
+
+# CCN_application_reporter + MessageStatsReport unchanged from your original
+# file; InterestFloodingReporter added so its output format is identical
+# across all four experiments (expect all-zero attack counters here).
+Report.nrofReports = 3
+Report.report1 = CCN_application_reporter
+Report.report2 = MessageStatsReport
+Report.report3 = InterestFloodingReporter
+
+# Router/buffer/TTL/seed pinned to single values (see note in chat reply):
+# your original file defined these as batch-sweep arrays
+# ([CCNRouter;SprayAndWaitRouter;FirstContactRouter], [4M;8M;16M;32M;64M],
+# [50;100;150;200;250;300;350], [13;27]) which would fan out into dozens
+# of combinations per run. Pinned here so A/B/C/D differ ONLY in the
+# attacker configuration.
+Group.router = CCNRouter
+CCNRouter.nrofCopies = 10
+CCNRouter.binaryMode = true
+
+Group.bufferSize = 16M
+Group.msgTtl = 300
+# 3 seeds -> 3 distinct mobility realizations per scenario, run with -b 3.
+MovementModel.rngSeed = [13;27;41]
+
+
+############################# InterestFlooder (Attacker) ####################################
+
+InterestFlooder.type = InterestFloodingApplication
+
+# Attack window (simulated seconds): splits the 43200s (12h) run into
+# clean thirds - 0-14400 pre-attack, 14400-28800 attack, 28800-43200
+# post-attack - so the same run shows clear before/during/after phases.
+InterestFlooder.attackStart = 14400
+InterestFlooder.attackEnd = 28800
+
+# LOW RATE: one Interest every 500s per attacker host.
+# 14400s attack window / 500s interval -> ~28 interests max per attacker;
+# numOfMsgToGenerate set with headroom above that so interval is the
+# actual limiting factor, not this budget.
+InterestFlooder.interval = 500
+InterestFlooder.interestSize = 50
+InterestFlooder.numOfMsgToGenerate = 50
+
+# Numeric content-ID range for malicious Interests: disjoint from
+# Producer.staticCacheRange (1,100) and Consumer.queryRange (1,100)
+InterestFlooder.attackQueryRange = 1000000,9999999
+InterestFlooder.attackPrefix = 0
+InterestFlooder.startSequence = 0
+InterestFlooder.seed = 99
+
+Group13.groupID = F
+Group13.nrofApplications = 1
+Group13.application1 = InterestFlooder
+Group13.nrofHosts = 1
+Group13.interface1 = btInterface
+# Group13 otherwise inherits Group.movementModel, Group.speed,
+# Group.waitTime, Group.bufferSize, Group.msgTtl, Group.router from the
+# common [Group.*] defaults, same as Group6/Group11 do.

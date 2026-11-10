@@ -1,0 +1,182 @@
+# === BPSec-INSPIRED CCN INTEGRITY: baseline / undefended / enforced / compat, x3 seeds ===
+# Run with: ./one.sh -b 12 default_settings.txt CCNSEC_scenario_ALL.txt
+#
+# NOTE: CCNSecurity in this fork is a BPSec-INSPIRED HMAC-SHA256 adaptation
+# for CCN Messages, not an RFC 9172/9173-compliant BPSec implementation.
+#
+# Same coprime 4x3 array-cycling trick as the earlier IFA/CPA scenario
+# files. Attack intensity is held FIXED (3 attackers, 10 forged Data/sec
+# each - the "distributed" intensity from the cache-poisoning work) across
+# every column except baseline, so the ONLY thing that varies between
+# columns 2-4 is the security configuration, not the attack itself.
+#
+# Run index -> (profile, seed):
+#   0: baseline/13      1: undefended/27    2: enforced/41       3: compat/13
+#   4: baseline/27      5: undefended/41    6: enforced/13       7: compat/27
+#   8: baseline/41      9: undefended/13   10: enforced/27      11: compat/41
+#
+# Column 0 (baseline): Scenario.nrofHostGroups stops at 12, no attacker,
+# CCNSecurity.enabled=false (no protection) - Experiment 1.
+# Column 1 (undefended): attacker present, CCNSecurity.enabled=false -
+# Experiment 2 (identical attack as column 2, zero protection).
+# Column 2 (enforced): attacker present, CCNSecurity.enabled=true,
+# policy=reject - Experiment 3.
+# Column 3 (compat): attacker present, CCNSecurity.enabled=true,
+# policy=accept (log verification outcomes, but behave exactly like
+# column 1) - Experiment 4, the explicit "accept unprotected content"
+# compatibility mode.
+
+#############################	Producer    ###################################
+
+Producer.type = CCN_application
+Producer.cacheCapacity = 5000
+Producer.mode = 2
+Producer.avaCache = 1,1
+Producer.maxCarriedContent = 1
+Producer.staticCacheCapacity = 50
+Producer.staticCacheRange = 1,100
+Producer.seedStaticCache = 36
+Producer.enablePIT = true
+
+Group1.nrofApplications = 1
+Group1.application1 = Producer
+Group1.nrofHosts = 15
+
+Group2.nrofApplications = 1
+Group2.application1 = Producer
+Group2.nrofHosts = 15
+
+Group3.nrofApplications = 1
+Group3.application1 = Producer
+Group3.nrofHosts = 1
+
+Group4.nrofApplications = 1
+Group4.application1 = Producer
+Group4.nrofHosts = 1
+
+Group5.nrofApplications = 1
+Group5.application1 = Producer
+Group5.nrofHosts = 1
+
+Group12.nrofApplications = 1
+Group12.application1 = Producer
+Group12.nrofHosts = 15
+
+
+#############################	Consumer   ####################################
+
+Consumer.type = CCN_application
+Consumer.mode = 1
+Consumer.cacheCapacity = 5000
+Consumer.seedQuery = 12
+Consumer.interestSize = 50
+Consumer.interval = 100
+Consumer.numOfMsgToGenerate = 20
+Consumer.queryRange = 1,100
+Consumer.queryDistribution = 2
+Consumer.avaCache = 0,1
+Consumer.maxCarriedContent = 1
+Consumer.enablePIT = true
+
+Group6.nrofApplications = 1
+Group6.application1 = Consumer
+Group6.nrofHosts = 20
+
+Group11.nrofApplications = 1
+Group11.application1 = Consumer
+Group11.nrofHosts = 10
+
+
+#######################	Intermediate relay node ##################################
+
+Intermedia.type = CCN_application
+Intermedia.cacheCapacity = 500
+Intermedia.mode = 3
+Intermedia.avaCache = 0,1
+Intermedia.maxCarriedContent = 1
+Intermedia.enablePIT = true
+
+Group7.nrofApplications = 1
+Group7.application1 = Intermedia
+Group7.nrofHosts = 10
+
+Group8.nrofApplications = 1
+Group8.application1 = Intermedia
+Group8.nrofHosts = 10
+
+Group9.nrofApplications = 1
+Group9.application1 = Intermedia
+Group9.nrofHosts = 20
+
+Group10.nrofApplications = 1
+Group10.application1 = Intermedia
+Group10.nrofHosts = 10
+
+
+############################    Global setting    #############################
+
+Scenario.ccnSecProfile = [baseline;undefended;enforced;compat]
+Scenario.name = CCNSEC_%%Scenario.ccnSecProfile%%_%%MovementModel.rngSeed%%
+Scenario.endTime = 43200
+Scenario.nrofHostGroups = [12;13;13;13]
+
+Report.nrofReports = 4
+Report.report1 = CCN_application_reporter
+Report.report2 = MessageStatsReport
+Report.report3 = CachePoisoningReporter
+Report.report4 = CCNSecurityReporter
+
+# column 0 (baseline) and column 1 (undefended): no protection.
+# column 2 (enforced): protection on, policy=reject (invalid Data refused).
+# column 3 (compat): protection on, policy=accept (metrics only, same
+# behavior as undefended - the explicit "accept unprotected content" mode).
+CCNSecurity.enabled = [false;false;true;true]
+CCNSecurity.policy = [1;1;2;1]
+CCNSecurity.keySeed = 4242
+# Disabled (-1) here: this file isolates protection on/off and
+# accept-vs-reject policy, not freshness/replay - see CCNSEC_scenario_replay.txt.
+CCNSecurity.freshnessWindow = -1
+CCNSecurity.replayCheckEnabled = true
+
+Group.router = CCNRouter
+CCNRouter.nrofCopies = 10
+CCNRouter.binaryMode = true
+
+Group.bufferSize = 16M
+Group.msgTtl = 300
+
+MovementModel.rngSeed = [13;27;41]
+
+
+############################# CachePoisoner (Attacker) ####################################
+
+CachePoisoner.type = CachePoisoningApplication
+
+# Same clean-thirds window as the IFA experiments: 0-14400 pre, 14400-28800
+# attack, 28800-43200 post, inside the 43200s (12h) run.
+CachePoisoner.attackStart = 14400
+CachePoisoner.attackEnd = 28800
+
+# Fixed across every column with an attacker (1-3): 10 forged Data/second
+# per attacker host - same intensity in every security configuration, so
+# only the security settings above differ between columns 1, 2, and 3.
+CachePoisoner.interval = 0.1
+CachePoisoner.numOfMsgToGenerate = 150000
+
+# Valid, existing producer content range - NOT the IFA's nonexistent range.
+CachePoisoner.contentRange = 1,200
+
+CachePoisoner.interestOrDataSize = 50
+CachePoisoner.poisonPayloadSize = 20
+CachePoisoner.seed = 99
+
+# -1 = rotate across contentRange rather than poisoning one id forever.
+CachePoisoner.targetId = -1
+# 1 = random rotation (default). Use 2 for sequential/round-robin instead.
+CachePoisoner.selectionMode = 1
+
+Group13.groupID = A
+Group13.nrofApplications = 1
+Group13.application1 = CachePoisoner
+Group13.nrofHosts = 3
+Group13.interface1 = btInterface

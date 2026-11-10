@@ -1,0 +1,14 @@
+WebApp stats for scenario CCNSEC_compat_41
+sim_time: 43200.1000
+
+oppo_cahce_hit: 372
+oppo_cache_miss: 3809
+drop_list:  0
+drop_pit:  1007
+drop_nonce:  87
+query_count: 393
+duplicated_query: 207
+static_cache_hit: 113
+static_cache_miss: 113
+response_count: 389
+average_interval: 2186

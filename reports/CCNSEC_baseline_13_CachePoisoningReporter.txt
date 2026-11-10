@@ -1,0 +1,34 @@
+Cache Poisoning Attack stats for scenario CCNSEC_baseline_13
+sim_time: 43200.1000
+
+forged_data_generated: 0
+forged_data_received: 0
+forged_data_cached_oppo: 0
+forged_data_cached_static: 0
+current_poisoned_entries_last: 0
+poisoned_entries_avg: 0.0
+poisoned_entries_max: 0
+cache_occupancy_last: 16
+cache_occupancy_avg: 9.768603465851172
+cache_occupancy_max: 25
+cache_capacity_last_seen: 5000
+poisoned_cache_hits: 0
+legit_cache_hits: 335
+poisoned_to_legit_hit_ratio: 0.0
+cache_hit_legit_fraction_overall: 1.0
+original_got_any_response: 253
+original_got_poisoned_response: 0
+valid_entries_evicted: 0
+poisoned_entries_evicted: 0
+query_count_before: 392
+query_count_during: 0
+query_count_after: 0
+delivery_ratio_before: 0.6454081632653061
+delivery_ratio_during: 0.0
+delivery_ratio_after: 0.0
+poisoned_response_count_before: 0
+poisoned_response_count_during: 0
+poisoned_response_count_after: 0
+avg_delay_before: 5645.658893282658
+avg_delay_during: 0.0
+avg_delay_after: 0.0

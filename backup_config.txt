@@ -1,0 +1,123 @@
+Group1.nrofApplictions = 1
+Group1.application1 = Producer
+Group1.nrofHosts = 1
+
+Group2.nrofApplictions = 1
+Group2.application1 = Producer
+Group2.nrofHosts = 1
+
+Group3.nrofApplictions = 1
+Group3.application1 = Producer
+Group3.nrofHosts = 1
+
+Group4.nrofApplictions = 1
+Group4.application1 = Producer
+Group4.nrofHosts = 1
+
+Group5.nrofApplictions = 1
+Group5.application1 = Producer
+Group5.nrofHosts = 1
+
+
+Intermedia.enablePIT = true
+Group7.nrofApplictions = 1
+Group7.application1 = Intermedia
+Group7.nrofHosts = 10
+
+
+Group1.movementModel = StationaryMovement
+Group1.nrofHosts = 1
+Group1.nodeLocation = 2600,2200
+Group1.groupID = static_
+Group1.interface1 = highspeedInterface
+Group1.bufferSize = 1G
+Group1.speed = 0,0
+
+
+Group2.movementModel = StationaryMovement
+Group2.nrofHosts = 1
+Group2.nodeLocation = 1300, 500
+Group2.groupID = static_
+Group2.interface1 = highspeedInterface
+Group2.bufferSize = 1G
+Group2.speed = 0,0
+
+
+
+
+
+Group3.movementModel = StationaryMovement
+Group3.nrofHosts = 1
+Group3.nodeLocation = 2314,1283
+Group3.groupID = static_
+Group3.bufferSize = 1G
+Group3.speed = 0,0
+Group3.interface1 = highspeedInterface
+
+
+Group4.movementModel = StationaryMovement
+Group4.nrofHosts = 1
+Group4.nodeLocation = 2800,750
+Group4.groupID = static_
+Group4.interface1 = highspeedInterface
+Group4.bufferSize = 1G
+Group4.speed = 0,0
+
+
+
+Group5.movementModel = StationaryMovement
+Group5.nrofHosts = 1
+Group5.nodeLocation = 1400, 1600
+Group5.groupID = static_
+Group5.interface1= highspeedInterface
+Group5.bufferSize = 1G
+Group5.speed = 0,0
+
+
+
+
+# The Tram groups
+Group8.groupID = t
+Group8.bufferSize = 50M
+Group8.movementModel = MapRouteMovement
+Group8.routeFile = data/tram3.wkt
+Group8.routeType = 1
+Group8.waitTime = 10, 30
+Group8.speed = 7, 10
+Group8.nrofHosts = 2
+Group8.nrofInterfaces = 1
+Group8.interface1 = btInterface
+# Group8.interface2 = highspeedInterface
+
+Group9.groupID = t
+Group9.bufferSize = 50M
+Group9.movementModel = MapRouteMovement
+Group9.routeFile = data/tram4.wkt
+Group9.routeType = 2
+Group9.waitTime = 10, 30
+Group9.speed = 7, 10
+Group9.nrofHosts = 2
+
+Group10.groupID = t
+Group10.bufferSize = 50M
+Group10.movementModel = MapRouteMovement
+Group10.routeFile = data/tram10.wkt
+Group10.routeType = 2
+Group10.waitTime = 10, 30
+Group10.speed = 7, 10
+Group10.nrofHosts = 2
+
+
+
+Group9.nrofApplictions = 1
+Group9.application1 = Intermedia
+Group9.nrofHosts = 10
+
+
+Group10.nrofApplictions = 1
+Group10.application1 = Intermedia
+Group10.nrofHosts = 10
+
+
+
+

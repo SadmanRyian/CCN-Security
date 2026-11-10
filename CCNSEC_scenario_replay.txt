@@ -1,0 +1,181 @@
+# === REPLAY: integrity-only (Exp 5) vs integrity+anti-replay (Exp 6), x3 seeds ===
+# Run with: ./one.sh -b 6 default_settings.txt CCNSEC_scenario_replay.txt
+#
+# A genuine, validly-signed Data packet is captured by a single attacker
+# host as it is opportunistically relayed, then resent VERBATIM later -
+# same content, same securitySource, same creationTime, same integrityTag.
+# The tag is genuinely valid (nothing was altered), so HMAC verification
+# alone cannot distinguish this from the original - only per-(source,id)
+# freshness/replay-state tracking can. This isolates exactly that.
+#
+# 2-column array (replayDefense) x 3-column seed array = 6 runs, -b 6
+# covers all 6 combinations exactly once (2 and 3 are coprime).
+#
+# Run index -> (profile, seed):
+#   0: integrityOnly/13   1: antiReplay/27   2: integrityOnly/41
+#   3: antiReplay/13      4: integrityOnly/27  5: antiReplay/41
+#
+# CCNSecurity.enabled=true and policy=reject are FIXED in both columns -
+# the only thing that differs is replayCheckEnabled (Experiment 5 vs 6).
+# No forging in this file at all (numOfMsgToGenerate=0 below) - the
+# attacker's only activity is capture-and-replay.
+
+#############################	Producer    ###################################
+
+Producer.type = CCN_application
+Producer.cacheCapacity = 5000
+Producer.mode = 2
+Producer.avaCache = 1,1
+Producer.maxCarriedContent = 1
+Producer.staticCacheCapacity = 50
+Producer.staticCacheRange = 1,100
+Producer.seedStaticCache = 36
+Producer.enablePIT = true
+
+Group1.nrofApplications = 1
+Group1.application1 = Producer
+Group1.nrofHosts = 15
+
+Group2.nrofApplications = 1
+Group2.application1 = Producer
+Group2.nrofHosts = 15
+
+Group3.nrofApplications = 1
+Group3.application1 = Producer
+Group3.nrofHosts = 1
+
+Group4.nrofApplications = 1
+Group4.application1 = Producer
+Group4.nrofHosts = 1
+
+Group5.nrofApplications = 1
+Group5.application1 = Producer
+Group5.nrofHosts = 1
+
+Group12.nrofApplications = 1
+Group12.application1 = Producer
+Group12.nrofHosts = 15
+
+
+#############################	Consumer   ####################################
+
+Consumer.type = CCN_application
+Consumer.mode = 1
+Consumer.cacheCapacity = 5000
+Consumer.seedQuery = 12
+Consumer.interestSize = 50
+Consumer.interval = 100
+Consumer.numOfMsgToGenerate = 20
+Consumer.queryRange = 1,100
+Consumer.queryDistribution = 2
+Consumer.avaCache = 0,1
+Consumer.maxCarriedContent = 1
+Consumer.enablePIT = true
+
+Group6.nrofApplications = 1
+Group6.application1 = Consumer
+Group6.nrofHosts = 20
+
+Group11.nrofApplications = 1
+Group11.application1 = Consumer
+Group11.nrofHosts = 10
+
+
+#######################	Intermediate relay node ##################################
+
+Intermedia.type = CCN_application
+Intermedia.cacheCapacity = 500
+Intermedia.mode = 3
+Intermedia.avaCache = 0,1
+Intermedia.maxCarriedContent = 1
+Intermedia.enablePIT = true
+
+Group7.nrofApplications = 1
+Group7.application1 = Intermedia
+Group7.nrofHosts = 10
+
+Group8.nrofApplications = 1
+Group8.application1 = Intermedia
+Group8.nrofHosts = 10
+
+Group9.nrofApplications = 1
+Group9.application1 = Intermedia
+Group9.nrofHosts = 20
+
+Group10.nrofApplications = 1
+Group10.application1 = Intermedia
+Group10.nrofHosts = 10
+
+
+############################    Global setting    #############################
+
+Scenario.replayDefense = [integrityOnly;antiReplay]
+Scenario.name = CCNSEC_replay_%%Scenario.replayDefense%%_%%MovementModel.rngSeed%%
+Scenario.endTime = 43200
+Scenario.nrofHostGroups = 13
+
+Report.nrofReports = 4
+Report.report1 = CCN_application_reporter
+Report.report2 = MessageStatsReport
+Report.report3 = CachePoisoningReporter
+Report.report4 = CCNSecurityReporter
+
+CCNSecurity.enabled = true
+CCNSecurity.policy = 2
+CCNSecurity.keySeed = 4242
+CCNSecurity.freshnessWindow = 3600
+# column 0 (integrityOnly, Experiment 5): false - a validly-tagged replay
+# is accepted, since nothing here checks timestamp/repetition.
+# column 1 (antiReplay, Experiment 6): true - the same replay is now
+# classified REPLAY and handled per policy (reject, above).
+CCNSecurity.replayCheckEnabled = [false;true]
+
+Group.router = CCNRouter
+CCNRouter.nrofCopies = 10
+CCNRouter.binaryMode = true
+
+Group.bufferSize = 16M
+Group.msgTtl = 300
+
+MovementModel.rngSeed = [13;27;41]
+
+
+############################# CachePoisoner (Attacker) ####################################
+
+CachePoisoner.type = CachePoisoningApplication
+
+# Same clean-thirds window as the IFA experiments: 0-14400 pre, 14400-28800
+# attack, 28800-43200 post, inside the 43200s (12h) run.
+CachePoisoner.attackStart = 14400
+CachePoisoner.attackEnd = 28800
+
+# No forging in this file - the attacker only captures and replays genuine
+# signed Data (see replayCapture/replayInterval below). interval/
+# numOfMsgToGenerate must still be set (read unconditionally by the
+# constructor) but numOfMsgToGenerate=0 means the normal forge-loop in
+# update() never actually fires.
+CachePoisoner.interval = 1.0
+CachePoisoner.numOfMsgToGenerate = 0
+
+# Opportunistically capture the latest genuine signed Data this attacker
+# relays, then resend it verbatim every 50s during the attack window.
+CachePoisoner.replayCapture = true
+CachePoisoner.replayInterval = 50
+
+# Valid, existing producer content range - NOT the IFA's nonexistent range.
+CachePoisoner.contentRange = 1,200
+
+CachePoisoner.interestOrDataSize = 50
+CachePoisoner.poisonPayloadSize = 20
+CachePoisoner.seed = 99
+
+# -1 = rotate across contentRange rather than poisoning one id forever.
+CachePoisoner.targetId = -1
+# 1 = random rotation (default). Use 2 for sequential/round-robin instead.
+CachePoisoner.selectionMode = 1
+
+Group13.groupID = A
+Group13.nrofApplications = 1
+Group13.application1 = CachePoisoner
+Group13.nrofHosts = 1
+Group13.interface1 = btInterface

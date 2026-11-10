@@ -1,0 +1,14 @@
+BPSec-inspired CCN Integrity stats for scenario CCNSEC_replay_integrityOnly_13
+sim_time: 43200.1000
+NOTE: this is a BPSec-INSPIRED HMAC-SHA256 adaptation for CCN Messages in this fork, not an RFC 9172/9173-compliant BPSec implementation (no BPv7 bundles, no security blocks, no CBOR encoding).
+
+integrity_valid: 3354
+integrity_missing: 0
+integrity_failed: 0
+integrity_valid_fraction: 1.0
+replay_detected: 0
+replay_accepted: 0
+replay_rejected: 0
+consumer_acceptance_rejected: 0
+poisoned_responses_despite_security: 0
+total_data_sent: 372

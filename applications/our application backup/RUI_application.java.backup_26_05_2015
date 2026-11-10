@@ -1,0 +1,966 @@
+/* 
+ * Copyright 2010 Aalto University, ComNet
+ * Released under GPLv3. See LICENSE.txt for details. 
+ * @author: RUI
+ */
+
+package applications;
+
+import java.util.Random;
+
+import report.PingAppReporter;
+import core.Application;
+import core.DTNHost;
+import core.Message;
+import core.Settings;
+import core.SimClock;
+import core.SimScenario;
+import core.World;
+
+//RUI
+import core.SimError;
+import java.util.HashMap;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Arrays;
+
+/**
+ * @author RUI
+ */
+
+public class RUI_application extends Application {
+	
+	/** Run in passive mode - don't generate pings but respond */
+	public static final String PING_PASSIVE = "passive";
+	/** Ping generation interval */
+	public static final String PING_INTERVAL = "interval";
+	/** Ping interval offset - avoids synchronization of ping sending */
+	public static final String PING_OFFSET = "offset";
+	/** Destination address range - inclusive lower, exclusive upper */
+	public static final String PING_DEST_RANGE = "destinationRange";
+	/** Seed for the app's random number generator */
+	public static final String PING_SEED = "seed";
+	/** Size of the ping message */
+	public static final String PING_PING_SIZE = "pingSize";
+	/** Size of the pong message */
+	public static final String PING_PONG_SIZE = "pongSize";	
+	/** Application ID */
+	public static final String APP_ID = "fi.tkk.netlab.RUI_application";
+	
+	/** Capacity of Cache */
+	public static final String CACHE_CAPACITY = "cacheCapacity";
+	/** Opportunity cache value range*/
+	public static final String OPPO_CACHE_RANGE = "oppoCacheRange";
+	/** Seed to generate query*/
+	public static final String SEED_QUERY = "seedQuery";
+	/** Query range*/
+	public static final String QUERY_RANGE = "queryRange";
+
+	// Private vars
+	private double	lastPing = 0;
+	private double	interval = 500;
+	private boolean passive = false;
+	private int		seed = 0;
+	private int		destMin=0;
+	private int		destMax=1;
+	private int		pingSize=1;
+	private int		pongSize=1;
+	private int		queryResponseSize = 10;
+	private Random	rng;
+
+	/** if MODE = 1, node is consumer; else if MODE = 2, node is producer*/
+	private int		mode = 1;
+	public static final String MODE = "mode"; 
+	
+	/** opportunity cache */
+	private int		capacity_of_cache = 5;
+	private LRUCache oppo_cache = null;
+	private int		seed_for_create_cache = 8;
+	private int		cache_value_range_Min = 1;
+	private int		cache_value_range_Max = 100;
+	
+	private int		seed_for_query = 6;
+	private Random rng_query;
+	private int 		query_range_Min = 1;
+	private int 		query_range_Max = 100;
+	private int 		max_carried_content = 5;
+	public static final String MAX_CARRIED_CONTENT = "maxCarriedContent";
+	
+	/** query record: first integer is the query_key, the second is to monitor does this query_key get response or not (1 for yes, 0 for no) */
+	private HashMap<Integer, Integer> query_record = new HashMap<Integer, Integer>();
+	
+	/** static cache */
+	private HashMap<Integer, String> static_cache;
+	public static final String STATIC_CACHE_RANGE = "staticCacheRange";
+	public static final String CAPACITY_OF_STATIC_CACHE = "staticCacheCapacity";
+	public static final String SEED_FOR_CREATE_STATIC_CACHE = "seedStaticCache";
+	private int		static_cache_value_Min = 1;
+	private int		static_cache_value_Max = 100;
+	private int		capacity_of_static_cache = 25;	//this value is for whole static cache content, not for single host
+	private int		seed_for_create_static_cache = 16;
+	public static final String queryResultsSelectionSeed = "seedQueryResult";
+	private Random rng_query_selection;
+	private int seed_query_result = 10; //random selected as 10
+	
+	/** availability of opportunity and static cache */
+	public static final String AVA_CACHE = "avaCache";
+	private int		true_static_cache = 1;
+	private int		true_oppo_cache = 1;
+	private boolean	ini_cache_again = true;
+	
+	/** delay queue */
+	private int		max_hold_query = 10;
+	private List<Delay_Msg> delay_queue = new ArrayList<Delay_Msg>();
+	private static final String TTL_FOR_DELAY_QUEUE = "ttlForDelayQueue";
+	private double		ttl_for_delay_queue = 500.0;	
+	
+	/** control num of msg to generate */
+	public static final String NUM_OF_MSG_TO_GENERATE = "numOfMsgToGenerate";
+	private int		num_of_msg_to_generate = 50;
+	private int		curGenerated = 0;
+	
+	/** 
+	 * @param s	Settings to use for initializing the application.
+	 */
+	public RUI_application(Settings s) {
+		if (s.contains(PING_PASSIVE)){
+			this.passive = s.getBoolean(PING_PASSIVE);
+		}
+		if (s.contains(PING_INTERVAL)){
+			this.interval = s.getDouble(PING_INTERVAL);
+		}
+		if (s.contains(PING_OFFSET)){
+			this.lastPing = s.getDouble(PING_OFFSET);
+		}
+		if (s.contains(PING_SEED)){
+			this.seed = s.getInt(PING_SEED);
+		}
+		if (s.contains(PING_PING_SIZE)) {
+			this.pingSize = s.getInt(PING_PING_SIZE);
+		}
+		if (s.contains(PING_PONG_SIZE)) {
+			this.pongSize = s.getInt(PING_PONG_SIZE);
+		}
+		if (s.contains(PING_DEST_RANGE)){
+			int[] destination = s.getCsvInts(PING_DEST_RANGE,2);
+			this.destMin = destination[0];
+			this.destMax = destination[1];
+		}
+		/** control the num of msg to generate */
+		if(s.contains(NUM_OF_MSG_TO_GENERATE)){
+			this.num_of_msg_to_generate = s.getInt(NUM_OF_MSG_TO_GENERATE);
+		}
+		/** mode */
+		if(s.contains(MODE)){
+			mode = s.getInt(MODE);
+			if(mode != 1 && mode != 2){
+				mode = 1;
+			}
+		}
+		/** availability of cache */
+		if (s.contains(AVA_CACHE)){
+			int[] temp = s.getCsvInts(AVA_CACHE, 2);
+			true_static_cache = temp[0];
+			true_oppo_cache = temp[1];
+		}
+		/** initialize the cache */
+		if (s.contains(OPPO_CACHE_RANGE)){
+			int[] temp = s.getCsvInts(OPPO_CACHE_RANGE, 2);
+			cache_value_range_Min = temp[0];
+			cache_value_range_Max = temp[1];
+		}
+		if (s.contains(CACHE_CAPACITY)){
+			this.capacity_of_cache = s.getInt(CACHE_CAPACITY);	
+		}
+		if (s.contains(STATIC_CACHE_RANGE)){
+			int[] temp = s.getCsvInts(STATIC_CACHE_RANGE, 2);
+			static_cache_value_Min = temp[0];
+			static_cache_value_Max = temp[1];
+		}
+		if (s.contains(CAPACITY_OF_STATIC_CACHE)){
+			this.capacity_of_static_cache = s.getInt(CAPACITY_OF_STATIC_CACHE);
+		}
+		if (s.contains(SEED_FOR_CREATE_STATIC_CACHE)){
+			this.seed_for_create_static_cache = s.getInt(SEED_FOR_CREATE_STATIC_CACHE);
+		}
+
+		Ini_oppo_cache();
+
+		/** selection of results once two hits while there is only one position left in msg */
+		if (s.contains(queryResultsSelectionSeed)){
+			this.seed_query_result = s.getInt(queryResultsSelectionSeed);
+		}
+		rng_query_selection = new Random(this.seed_query_result);
+
+		/** initialize the query msg sequence*/
+		if (s.contains(SEED_QUERY)){
+			this.seed_for_query = s.getInt(SEED_QUERY);
+		}
+		rng_query = new Random(this.seed_for_query);
+		
+		/** get query range*/
+		if (s.contains(QUERY_RANGE)){
+			int[] query_range = s.getCsvInts(QUERY_RANGE,2);
+			this.query_range_Min = query_range[0];
+			this.query_range_Max = query_range[1];
+		}
+		if (s.contains(MAX_CARRIED_CONTENT)){
+			this.max_carried_content = s.getInt(MAX_CARRIED_CONTENT);
+		}
+		if (s.contains(TTL_FOR_DELAY_QUEUE)){
+			this.ttl_for_delay_queue = s.getInt(TTL_FOR_DELAY_QUEUE);
+		}
+		
+		rng = new Random(this.seed);
+		super.setAppID(APP_ID);
+	}
+
+	/**
+	* initialize the cache content
+	*/	
+	public void Ini_oppo_cache(){
+		if(true_oppo_cache >= 1){
+			/** initialize oppo_cache */
+			this.oppo_cache = new LRUCache(this.capacity_of_cache);
+			Random rng_cache = new Random(this.seed_for_create_cache);
+			for(int i = 0; i < capacity_of_cache; i++){
+				int temp = cache_value_range_Min + rng_cache.nextInt(cache_value_range_Max - cache_value_range_Min);
+				this.oppo_cache.set(temp, new Integer(i).toString());
+			}
+		}
+		/*
+		if(true_static_cache >= 1){
+			// initialize static_cache
+			Random rng_static_cache = new Random(this.seed_for_create_static_cache);
+			for(int i = 0; i < capacity_of_static_cache ; i++){
+				int temp = static_cache_value_Min + rng_static_cache.nextInt(static_cache_value_Max - static_cache_value_Min);
+				if(static_cache.containsKey(temp)){
+					i--;
+					continue;
+				}
+				static_cache.put(temp, new Integer(i+1).toString());
+			}
+		}
+	*/
+	}
+	
+	
+	
+	
+	
+	public void Ini_static_cache(DTNHost h){
+		if(static_cache == null){
+			this.static_cache 
+			= new HashMap<Integer, String>();
+		}
+		
+		if(true_static_cache >= 1){
+			//test code
+			//System.out.println("Hosts name:" + SimScenario.getInstance().getWorld().getHosts());
+			
+			
+			/** initialize static_cache */
+			//get the num of the host since the host num starting from 0
+			int seed_from_host = Integer.parseInt(h.toString().substring(1)) + 1;
+			//get the num of hosts in the simulation scenario
+			int num_of_hosts = SimScenario.getInstance().getWorld().getHosts().size();
+			//calculate the range of values for every host
+			int range = (static_cache_value_Max - static_cache_value_Min)/num_of_hosts + 1;
+			
+			
+			//distribution setting like, 1-20, 21, 40....
+			//int max_range = range*seed_from_host;
+			//int min_range = range*(seed_from_host - 1) + 1;
+			
+			//distribution setting: all 1-20
+			int max_range = static_cache_value_Max;
+			int min_range = static_cache_value_Min;
+			num_of_hosts = 1;
+			
+			//test code
+			//System.out.println("range max: + mim " + max_range + " " + min_range);
+			
+			Random rng_static_cache = new Random(this.seed_for_create_static_cache + seed_from_host);
+			
+			for(int i = 0; i < capacity_of_static_cache/num_of_hosts ; i++){
+				int temp = min_range + rng_static_cache.nextInt(max_range - min_range);
+				if(static_cache.containsKey(temp)){
+					i--;
+					continue;
+				}
+				static_cache.put(temp, new Integer(i+1).toString());
+				
+				//test code
+				System.out.print(h + ":" + temp + " ");
+			}
+			//test code
+			System.out.println();
+			
+		}
+
+	}
+	
+	/** 
+	 * Copy-constructor
+	 * 
+	 * @param a
+	 */
+	public RUI_application(RUI_application a) {
+		super(a);
+		this.lastPing = a.getLastPing();
+		this.interval = a.getInterval();
+		this.passive = a.isPassive();
+		this.destMax = a.getDestMax();
+		this.destMin = a.getDestMin();
+		this.seed = a.getSeed();
+		this.pongSize = a.getPongSize();
+		this.pingSize = a.getPingSize();
+		this.queryResponseSize = a.getQueryResponseSize();
+		this.rng = new Random(this.seed);
+
+		this.oppo_cache = a.oppo_cache;
+		this.capacity_of_cache = a.capacity_of_cache;
+		this.seed_for_create_cache = a.seed_for_create_cache;
+		this.cache_value_range_Min = a.cache_value_range_Min;
+		this.cache_value_range_Max = a.cache_value_range_Max;
+		this.max_carried_content = a.max_carried_content;
+		
+		this.seed_for_query = a.seed_for_query;
+		this.rng_query = a.rng_query;
+		this.query_range_Min = a.query_range_Min;
+		this.query_range_Max = a.query_range_Max;
+		this.mode = a.mode;
+		this.query_record = a.query_record;
+		
+		this.static_cache = a.static_cache;
+		this.static_cache_value_Min = a.static_cache_value_Min;
+		this.static_cache_value_Max = a.static_cache_value_Max;
+		this.capacity_of_static_cache = a.capacity_of_static_cache;
+		this.seed_for_create_static_cache = a.seed_for_create_static_cache;
+		this.rng_query_selection = a.rng_query_selection;
+		this.seed_query_result = a.seed_query_result;
+		
+		this.true_static_cache = a.true_static_cache;
+		this.true_oppo_cache = a.true_oppo_cache;
+		
+		this.max_hold_query = a.max_hold_query;
+		this.delay_queue = a.delay_queue;
+		this.ttl_for_delay_queue = a.ttl_for_delay_queue;
+//		this.host_to_send_list = a.host_to_send_list;
+		this.curGenerated = a.curGenerated;
+		this.num_of_msg_to_generate = a.num_of_msg_to_generate;
+	}
+	
+	/** 
+	 * Handles an incoming message. If the message is a ping message replies
+	 * with a pong message. Generates events for ping and pong messages.
+	 * 
+	 * @param msg	message received by the router
+	 * @param host	host to which the application instance is attached
+	 */
+	@Override
+	public Message handle(Message msg, DTNHost host) {
+		String type = (String)msg.getProperty("type");
+		if(type == null) return msg; //Not a valid msg
+		
+		if(this.ini_cache_again == true || static_cache == null){
+			this.ini_cache_again = false;
+			Ini_static_cache(host);
+		}
+		
+		//test code
+		System.out.println(host + ": got a [" + type + "] msg = [" + msg.getProperty("queryMsg") + "] from " + msg.getFrom() + " to " + msg.getTo());
+	
+		//test code
+		//if(host.toString().equals("p0")){
+			//System.out.println(host + ": got a [" + type + "] msg = [" + msg.getProperty("queryMsg") + "] from " + msg.getFrom() + " to " + msg.getTo());
+		//}
+		
+		
+		/**
+		 * Advanced version of response to query msg
+		 * */
+		if (type.equalsIgnoreCase("query_ad") && msg.getTo() == host){
+			// Send :event to listeners
+			super.sendEventToListeners("GotQuery", null, host);
+			
+			String query_key = (String)msg.getProperty("queryMsg");
+			
+			//test code
+			//System.out.println(host + ": got a [" + type + "] msg = " + query_key);
+			
+			
+			/** check if the query_key already exist or not */
+			int position_query_key = rQueue_lookup(query_key);
+			if(position_query_key == -1){
+				// initialize one delay queue */
+				Delay_Msg temp_msg = new Delay_Msg();
+				temp_msg.setQueryKey(query_key);
+				temp_msg.setReceivedTime(SimClock.getTime());
+				temp_msg.setTTL(ttl_for_delay_queue);
+				temp_msg.setMaxToCarry(Integer.parseInt((String)msg.getProperty("maxCarriedContent")) - Integer.parseInt((String)msg.getProperty("currNumCarriedContent")));
+				temp_msg.clearResourceList();
+				
+				//add current host to host_to_send list
+				temp_msg.getHostsToSend().addHost(msg.getFrom());
+				
+				// add to delay queue */
+				delay_queue.add(temp_msg);
+			}else{
+				//test code
+				//System.out.println("add host to send");
+				
+				// add source host to host_to_send list */
+				Delay_Msg temp_delay_msg = delay_queue.get(position_query_key);
+				delay_queue.remove(position_query_key);
+				temp_delay_msg.addHostsToSend(msg.getFrom());
+				//store back
+				delay_queue.add(position_query_key, temp_delay_msg);
+			}
+			
+			/** query local cache = oppo_cache + static_cahce */
+			//System.out.println("query_ad for:" + msg.getProperty("queryMsg") + " from " + msg.getFrom());
+			int request_in_int = Integer.parseInt( (String)msg.getProperty("queryMsg") );
+			String retrieved_value_from_oppo = "";
+			
+			//test code
+			//System.out.println(host + "[true_oppo_cache:" + true_oppo_cache + " true_static_cache:" + true_static_cache + "]");
+			
+			if(true_oppo_cache >= 1){
+				retrieved_value_from_oppo = oppo_cache.get(request_in_int);
+				if(retrieved_value_from_oppo.isEmpty()){
+					super.sendEventToListeners("oppoCacheMiss", null, host);
+					
+					//test code
+					//System.out.println(host + ":[oppo miss] for [" + request_in_int + "]");
+				}
+				else{
+					super.sendEventToListeners("oppoCacheHit", null, host);
+					
+					//test code
+					System.out.println(host + ":[oppo hit] visited hosts: " + msg.getHops_Processed());
+				}
+			}
+			
+			String retrieved_value_from_static = "";
+			if(true_static_cache >= 1){
+				if(static_cache.get(request_in_int) == null){
+					super.sendEventToListeners("staticCacheMiss", null, host);
+					
+					//test code
+					//System.out.println(host + ":[static miss] for [" + request_in_int + "]");
+				}else{
+					retrieved_value_from_static = static_cache.get(request_in_int);
+					super.sendEventToListeners("staticCacheHit", null, host);
+					
+					//test code
+					System.out.println(host + ":[static hit] visited hosts: " + msg.getHops_Processed());
+				}
+			}
+			
+			
+			/**selecting a subset of resources*/
+			int num_of_resource_to_store = 0;
+			String[] resource_to_store = new String[2];
+			int curr_num_carried_content = Integer.parseInt((String)msg.getProperty("currNumCarriedContent"));
+			int max_allowed_in_msg = Integer.parseInt((String)msg.getProperty("maxCarriedContent"));
+			
+			if(!retrieved_value_from_oppo.isEmpty() || !retrieved_value_from_static.isEmpty()){
+				if(max_allowed_in_msg - curr_num_carried_content >= 2){
+					if(!retrieved_value_from_oppo.isEmpty()){resource_to_store[num_of_resource_to_store] = retrieved_value_from_oppo; num_of_resource_to_store++;}
+					if(!retrieved_value_from_static.isEmpty()){resource_to_store[num_of_resource_to_store] = retrieved_value_from_static; num_of_resource_to_store++;}
+				}
+				
+				else if(max_allowed_in_msg - curr_num_carried_content == 1){
+					if(!retrieved_value_from_oppo.isEmpty() && !retrieved_value_from_static.isEmpty()){
+						if(rng_query_selection.nextInt(100)%2 == 0){
+							//select result from oppo cache
+							resource_to_store[num_of_resource_to_store] = retrieved_value_from_oppo;
+						}else{
+							//select result from static cache
+							resource_to_store[num_of_resource_to_store] = retrieved_value_from_static;
+						}
+						num_of_resource_to_store ++;
+					}
+					else if(!retrieved_value_from_oppo.isEmpty()){
+						resource_to_store[num_of_resource_to_store] = retrieved_value_from_oppo;
+						num_of_resource_to_store++;
+					}
+					else if(!retrieved_value_from_static.isEmpty()){
+						resource_to_store[num_of_resource_to_store] = retrieved_value_from_static;
+						num_of_resource_to_store++;
+					}
+				}
+			}
+			
+			
+			/**determing termination or continious of forwarding query*/
+			boolean flag_for_forward = false;
+			if(num_of_resource_to_store + curr_num_carried_content < max_allowed_in_msg){flag_for_forward = true;}
+			//test code
+			//System.out.println(host + ":msg[" + query_key + "]"  + " num to store " + num_of_resource_to_store + " " + curr_num_carried_content + " " + max_allowed_in_msg);
+			
+			
+			/**modifying query*/
+			if(num_of_resource_to_store > 0){
+				msg.updateProperty("currNumCarriedContent", new Integer(num_of_resource_to_store + curr_num_carried_content).toString());
+
+				int target_position = this.rQueue_lookup((String)msg.getProperty("queryMsg"));
+				Delay_Msg temp_delay_msg = delay_queue.get(target_position);
+				for(int i = 0; i < num_of_resource_to_store; i++){
+					//store in the temp delay msg
+					temp_delay_msg.addResource(resource_to_store[i]);
+				}
+				//store back
+				delay_queue.remove(target_position);
+				delay_queue.add(target_position, temp_delay_msg);
+			}
+
+			/** Routing */
+			if(flag_for_forward){
+				//add current host to visited hosts list
+				msg.addNodeOnPath_Processed(host);
+				//forward to other nodes except visited
+				boolean flag_forwarded = false;
+				List<DTNHost> visited_hosts = msg.getHops_Processed();
+				List<DTNHost> hosts = SimScenario.getInstance().getWorld().getHosts();
+				
+				//test code
+				//System.out.println(host + " destMin:" + destMin + " destMax:" + destMax);
+				//System.out.println(host + " visited host " + visited_hosts);
+				
+				for(DTNHost h:hosts){
+					if(h != null && !visited_hosts.contains(h)){
+						///modifying forward msg
+						//Message m = msg.replicate();
+						//m.setFrom(host);
+						//m.setTo(h);
+						msg.setFrom(host);
+						msg.setTo(h);
+						host.createNewMessage(msg);
+						
+						flag_forwarded = true;
+						//test code
+						//System.out.println(host + ":msg forward [" + query_key + "] to " + h);
+						
+						super.sendEventToListeners("MsgForwarded", null, host);
+					}
+				}
+				
+				//in case there is nobody to forward
+				if(!flag_forwarded){
+					System.out.println(host + ":nobody to forward, drop package [" + msg.getProperty("queryMsg") + "]" + " visited host:" + visited_hosts);
+				}
+				
+			}
+			else{
+				/*
+				//response back
+				///get host_to_send list
+				int target_position = this.rQueue_lookup((String)msg.getProperty("queryMsg"));
+				Delay_Msg temp_delay_msg = delay_queue.get(target_position);
+				List<DTNHost> hosts_to_send = temp_delay_msg.getHostsToSend().getHostToSendList();
+				for(DTNHost h:hosts_to_send){
+					Message response = new Message(host, h, "queryResponse" + SimClock.getIntTime() + "-" + host.getAddress(), this.getQueryResponseSize());
+					response.addProperty("type", "queryResponse");
+					response.addProperty("queryMsg", (String)msg.getProperty("queryMsg"));
+					response.addProperty("content", temp_delay_msg.getResourceList().toString());
+					response.setAppID(APP_ID);
+					host.createNewMessage(response);
+				}
+				*/
+				update(host);
+			}
+
+			//System.out.println("msg type: " + msg.getProperty("type") + "\nretrieved_value_from_oppo:" + retrieved_value_from_oppo + "\nretrieved_value_from_static:" + retrieved_value_from_static + "\n");
+		
+		}
+		
+		
+		
+		
+		/** parse response */
+		if (type.equalsIgnoreCase("queryResponse") && msg.getTo() == host){
+			//String response_msg = "";
+			List<String> response_msg_content;
+			String query_key_of_response = (String)msg.getProperty("queryMsg");
+			
+			// Send event to listeners
+			//super.sendEventToListeners("lol", query_key_of_response, host);
+			
+			if(msg.getProperty("content") == null){
+				//response_msg = "Nothing found";
+			}
+			else{
+				super.sendEventToListeners("GotResponse", query_key_of_response, host);
+				//check host query_record
+				if(query_record.containsKey(Integer.parseInt(query_key_of_response)) == true){
+					///host sent this query before
+					super.sendEventToListeners("OriginalGotResponse", query_key_of_response, host);
+					///clean the record for this query
+					query_record.remove(Integer.parseInt(query_key_of_response));
+				}
+				
+				//response_msg = (String)msg.getProperty("content");
+				String response_with_char = (String)msg.getProperty("content");
+				response_msg_content = new ArrayList<String>(Arrays.asList(response_with_char.split(",")));
+				//System.out.println("Hi " + response_msg_content);
+				//check whether there is a delay_msg in delay_queue waiting for it or not
+				int target_position_for_response = rQueue_lookup(query_key_of_response);
+				if( target_position_for_response != -1){
+				///if yes, store the response into resource list. PS: when the num of resource get to the max value, the update function below is responsiable for sending msg to the former host which are recorded in host_to_send list;
+					Delay_Msg temp_msg = delay_queue.get(target_position_for_response);
+					for(String s:response_msg_content){
+						temp_msg.addResource(s);
+					}
+					////store back
+					delay_queue.set(target_position_for_response, temp_msg);
+					
+
+					////store successful query into oppo_cache and don't clean up the delay_queue
+					if(oppo_cache.get(Integer.parseInt(query_key_of_response)) == null)
+						oppo_cache.set(Integer.parseInt(query_key_of_response), response_msg_content.toString());
+					
+					System.out.println(host + ": got [" + query_key_of_response + "]");
+				}
+				else{
+				///else, the time is up. Drop the packet
+					System.out.println(SimClock.getTime() + ":" + host + ": query for [" + query_key_of_response + "] is time up. Drop it.");
+				}
+				
+			}
+		}
+		
+		
+
+		return msg;
+	}
+
+	/** 
+	 * Draws a random host from the destination range
+	 * 
+	 * @return host
+	 */
+	private DTNHost randomHost() {
+		int destaddr = 0;
+		if (destMax == destMin) {
+			destaddr = destMin;
+		}
+		destaddr = destMin + rng.nextInt(destMax - destMin);
+		World w = SimScenario.getInstance().getWorld();
+		
+		return w.getNodeByAddress(destaddr);
+	}
+	
+	@Override
+	public Application replicate() {
+		return new RUI_application(this);
+	}
+
+	/** 
+	 *
+	 * 
+	 * @param host to which the application instance is attached
+	 */
+	@Override
+	public void update(DTNHost host) {
+		if(this.mode == 1){
+			/** generate msg */
+			double curTime = SimClock.getTime();
+			if (curTime - this.lastPing >= this.interval) {
+				if( curGenerated < num_of_msg_to_generate){
+					curGenerated ++;
+					
+					if(rng_query == null){
+						//accept the num in the name of host to act as an parameter to generate query
+						int seed_from_host = Integer.parseInt(host.toString().substring(1)) + 1;
+						rng_query = new Random(seed_for_query + seed_from_host);
+					}
+					
+					//check does current host itself already has the resource or not
+					int query_key = -1;
+					while(true){
+						query_key = query_range_Min + rng_query.nextInt(query_range_Max - query_range_Min);
+						boolean flag_for_reg = false;
+						if(static_cache != null){
+							if(static_cache.get(query_key) != null && !static_cache.get(query_key).isEmpty()){
+								flag_for_reg = true;
+								//System.out.println("static true:" + static_cache.get(query_key));
+							}
+						}
+						
+						if(oppo_cache != null){
+							if(oppo_cache.get(query_key) != null && !oppo_cache.get(query_key).isEmpty()){
+								flag_for_reg = true;
+								//System.out.println("oppo true:" + oppo_cache.get(query_key));
+							}
+						}
+/*		
+						//test code
+						System.out.println("regenerate:" + query_key);
+						
+						try{
+							Thread.sleep(2000);
+						}catch(InterruptedException e){
+							
+						}
+	*/					
+						if(flag_for_reg == false)
+							break;
+					}
+					
+					/** broadcast the query msg to all the host expect the sender */
+					boolean flag_for_sent_once = false;
+					List<DTNHost> hosts = SimScenario.getInstance().getWorld().getHosts();
+					for(DTNHost destHost:hosts){
+						if(destHost != null && destHost != host){
+							// Time to send a query msg
+							Message m = new Message(host, destHost, "query_ad" +
+									SimClock.getIntTime() + "-" + host.getAddress(),
+									getPingSize());
+							m.addProperty("type", "query_ad");
+							m.addProperty("queryMsg", new Integer(query_key).toString());
+							m.addProperty("maxCarriedContent", new Integer(max_carried_content).toString());
+							m.addProperty("currNumCarriedContent", "0");
+							m.setAppID(APP_ID);
+							host.createNewMessage(m);
+							
+							if(flag_for_sent_once == false){
+								super.sendEventToListeners("SentQuery", (String)m.getProperty("queryMsg"), host);
+								query_record.put(Integer.parseInt((String)m.getProperty("queryMsg")), 0);
+								System.out.println(host + " query for [" + (String)m.getProperty("queryMsg") + "]");
+							}
+							flag_for_sent_once = true;
+						}
+					}
+					
+					//test code
+					//System.out.println(host + " query for [" + query_key + "] to " + hosts);
+					
+					this.lastPing = curTime;
+				}
+			}
+		}
+		
+		/** update delay_queue: checking every delay_msg in delay_queue */
+		List<Delay_Msg> to_set_false = new ArrayList<Delay_Msg>();
+		List<Delay_Msg> to_delete = new ArrayList<Delay_Msg>();
+		for(Delay_Msg delay_msg:delay_queue){
+			double currTime = SimClock.getTime();
+			//check whether time is up or not
+			
+			//right now don't drop but we should uncomment the following code in the later advanced section.
+			double time_diff = delay_msg.getReceivedTime() + delay_msg.getTTL() - currTime;
+			//double time_diff = 1;
+			
+			if(time_diff > 0){
+				///if not, check whether the resoure_list is full
+				if(delay_msg.getResourceList().size() != 0){
+					if(delay_msg.getMaxToCarry() <= delay_msg.getResourceList().size() || time_diff < 100){
+						////if yes, check whether it is sent already
+						if(delay_msg.getValid() == true){
+							
+							//test code
+							//System.out.println(host + ": send back to " + delay_msg.getHostsToSend().getHostToSendList());
+							
+							/////send response msg back to the hosts in host_to_send list
+							List<DTNHost> hosts_to_send = delay_msg.getHostsToSend().getHostToSendList();
+							for(DTNHost hts:hosts_to_send){
+								if(hts != host){
+									Message response = new Message(host, hts, "queryResponse" + SimClock.getIntTime() + "-" + host.getAddress(), this.getQueryResponseSize());
+									response.addProperty("type", "queryResponse");
+									response.addProperty("queryMsg", delay_msg.getQueryKey());
+									String response_content_str = "";
+									for(String s:delay_msg.getResourceList()){
+										response_content_str += s + ",";
+									}
+									response.addProperty("content", response_content_str);
+									response.setAppID(APP_ID);
+									host.createNewMessage(response);
+									
+									//test code
+									System.out.println(host + ": response back to " + hts + " for msg: [" + delay_msg.getQueryKey() + "]");
+								}
+								
+							}
+							/////set the valid flag of delay_msg to false but it is still valid in oppo_cache
+							//delay_msg.setValid(false);
+							to_set_false.add(delay_msg);
+						}
+						
+					}
+					else{	
+						////else, continue to next delay_msg;
+						continue;
+					}
+				}
+				
+				else{
+					continue;
+				}
+				
+				
+			}
+			else{
+				//test code
+				//System.out.println(host + ":" + delay_msg + " time is up " + time_diff);
+				
+				///else delete the delay_msg in delay_queue and remove corresponding reference in oppo_cache
+				//delay_queue.remove(delay_msg);
+				to_delete.add(delay_msg);
+			}
+		}
+		
+		
+		///set valid to false
+		for(Delay_Msg delay_msg : to_set_false){
+			Delay_Msg temp_msg = delay_msg;
+			temp_msg.setValid(false);
+			delay_queue.remove(delay_msg);
+			delay_queue.add(temp_msg);
+		}
+		///delete delay_msg in delay_queue
+		for(Delay_Msg delay_msg : to_delete){
+			delay_queue.remove(delay_msg);
+		}
+		
+		
+	}
+	
+	
+	public int rQueue_lookup(String query_key){
+		int i = 0;
+		for(Delay_Msg msg: this.delay_queue){
+			if(msg.getQueryKey().equals(query_key)){
+				return i;
+			}
+			i++;
+		}
+		return -1;
+	}
+	
+
+	/**
+	 * @return the lastPing
+	 */
+	public double getLastPing() {
+		return lastPing;
+	}
+
+	/**
+	 * @param lastPing the lastPing to set
+	 */
+	public void setLastPing(double lastPing) {
+		this.lastPing = lastPing;
+	}
+
+	/**
+	 * @return the interval
+	 */
+	public double getInterval() {
+		return interval;
+	}
+
+	/**
+	 * @param interval the interval to set
+	 */
+	public void setInterval(double interval) {
+		this.interval = interval;
+	}
+
+	/**
+	 * @return the passive
+	 */
+	public boolean isPassive() {
+		return passive;
+	}
+
+	/**
+	 * @param passive the passive to set
+	 */
+	public void setPassive(boolean passive) {
+		this.passive = passive;
+	}
+
+	/**
+	 * @return the destMin
+	 */
+	public int getDestMin() {
+		return destMin;
+	}
+
+	/**
+	 * @param destMin the destMin to set
+	 */
+	public void setDestMin(int destMin) {
+		this.destMin = destMin;
+	}
+
+	/**
+	 * @return the destMax
+	 */
+	public int getDestMax() {
+		return destMax;
+	}
+
+	/**
+	 * @param destMax the destMax to set
+	 */
+	public void setDestMax(int destMax) {
+		this.destMax = destMax;
+	}
+
+	/**
+	 * @return the seed
+	 */
+	public int getSeed() {
+		return seed;
+	}
+
+	/**
+	 * @param seed the seed to set
+	 */
+	public void setSeed(int seed) {
+		this.seed = seed;
+	}
+
+	/**
+	 * @return the pongSize
+	 */
+	public int getPongSize() {
+		return pongSize;
+	}
+
+	/**
+	 * @param pongSize the pongSize to set
+	 */
+	public void setPongSize(int pongSize) {
+		this.pongSize = pongSize;
+	}
+
+	/**
+	 * @return the pingSize
+	 */
+	public int getPingSize() {
+		return pingSize;
+	}
+
+	/**
+	 * @param pingSize the pingSize to set
+	 */
+	public void setPingSize(int pingSize) {
+		this.pingSize = pingSize;
+	}
+
+	/**
+	* @return the cache capacity
+	*/
+	public int getCacheCapacity(){
+		return this.capacity_of_cache;
+	}
+	
+	public int getQueryResponseSize(){
+		return this.queryResponseSize;
+	}
+
+}

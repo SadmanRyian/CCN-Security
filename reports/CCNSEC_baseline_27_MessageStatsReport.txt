@@ -1,0 +1,20 @@
+Message stats for scenario CCNSEC_baseline_27
+sim_time: 43200.1000
+created: 2600
+started: 18267
+relayed: 12462
+aborted: 5805
+dropped: 10713
+removed: 0
+delivered: 919
+delivery_prob: 0.3535
+response_prob: 0.0000
+overhead_ratio: 12.5604
+latency_avg: 6076.1457
+latency_med: 4960.4000
+hopcount_avg: 2.7040
+hopcount_med: 3
+buffertime_avg: 13481.2042
+buffertime_med: 14875.7000
+rtt_avg: NaN
+rtt_med: NaN

@@ -1,0 +1,182 @@
+# This configuration file adds CCN application for all the nodes and 
+# a report module that counts the number of pings & pongs sent & received
+
+#############################	Producer    ###################################
+
+Producer.type = CCN_application
+Producer.cacheCapacity = 5000
+Producer.mode = 2
+# $1 for static cache, $2 for oppo cache
+Producer.avaCache = 1,1
+# initial maximum carried content of one msg
+Producer.maxCarriedContent = 1
+
+
+Producer.staticCacheCapacity = 50
+
+#{5, 10, 15, 20, 25, 30, 35, 40, 45, 50}
+Producer.staticCacheRange = 1,100 
+Producer.seedStaticCache = 36
+
+# Set producer group
+Producer.enablePIT = true 
+
+
+Group1.nrofApplictions = 1
+Group1.application1 = Producer
+Group1.nrofHosts = 15
+
+Group2.nrofApplictions = 1
+Group2.application1 = Producer
+Group2.nrofHosts = 15
+
+Group3.nrofApplictions = 1
+Group3.application1 = Producer
+Group3.nrofHosts = 1
+
+Group4.nrofApplictions = 1
+Group4.application1 = Producer
+Group4.nrofHosts = 1
+
+Group5.nrofApplictions = 1
+Group5.application1 = Producer
+Group5.nrofHosts = 1
+
+
+Group12.nrofApplictions = 1
+Group12.application1 = Producer
+Group12.nrofHosts = 15
+
+
+
+# [1;3;5;7;9;11;13;15]
+#10
+
+
+#############################	Consumer   ####################################
+
+# Define new application
+Consumer.type = CCN_application
+Consumer.mode = 1
+Consumer.cacheCapacity = 5000
+Consumer.seedQuery = 12
+Consumer.interestSize = 50 
+
+
+Consumer.interval = 100
+#num of msg to generate for each consumer
+Consumer.numOfMsgToGenerate = 20
+Consumer.queryRange = 1,100
+
+#Consumer.staticCacheCapacity = 20
+#Consumer.staticCacheRange = 1,100 
+#Consumer.seedStaticCache = 36
+
+#distribution type, 1 for random, 2 for ZipF
+Consumer.queryDistribution = 2
+
+
+# $1 for static cache, $2 for oppo cache
+Consumer.avaCache = 0,1
+# initial maximum carried content of one msg
+Consumer.maxCarriedContent = 1
+# Set consumer group
+Consumer.enablePIT = true
+
+Group6.nrofApplications = 1
+Group6.application1 = Consumer
+Group6.nrofHosts = 20
+
+Group11.nrofApplications = 1
+Group11.application1 = Consumer
+Group11.nrofHosts = 10
+
+
+#######################	Intermediate relay node ##################################
+
+Intermedia.type = CCN_application
+Intermedia.cacheCapacity = 500
+Intermedia.mode = 3
+Intermedia.avaCache = 0,1   
+Intermedia.maxCarriedContent = 1  
+
+
+Intermedia.enablePIT = true
+Group7.nrofApplictions = 1
+Group7.application1 = Intermedia
+Group7.nrofHosts = 10
+
+
+Group8.nrofApplictions = 1
+Group8.application1 = Intermedia
+Group8.nrofHosts = 10
+
+
+Group9.nrofApplictions = 1
+Group9.application1 = Intermedia
+Group9.nrofHosts = 20
+
+
+Group10.nrofApplictions = 1
+Group10.application1 = Intermedia
+Group10.nrofHosts = 10
+
+
+
+
+
+############################    Global setting    #############################
+Scenario.name = TEST_%%Group.router%%_%%MovementModel.rngSeed%%_%%Group.msgTtl%%_%%Group.bufferSize%%_%%Consumer.queryDistribution%%
+Scenario.endTime = 360000
+Scenario.nrofHostGroups = 2
+
+# Add report for my app
+Report.nrofReports = 2
+Report.report1 = CCN_application_reporter
+Report.report2 = MessageStatsReport
+
+#1 content centric spray and wait router
+#Group.router = EPpSWRouter
+#EPpSWRouter.nrofCopies = 10
+#EPpSWRouter.binaryMode = true
+
+#2
+Group.router = [CCNRouter;SprayAndWaitRouter;FirstContactRouter]
+CCNRouter.nrofCopies = 10
+CCNRouter.binaryMode = true
+
+
+
+
+
+
+#3
+#Group.router = SprayAndWaitRouter
+#CCNRouter.nrofCopies = 10
+#CCNRouter.binaryMode = true
+
+#4
+#Group.router = ProphetRouter
+#ProphetRouter.secondsInTimeUnit = 30
+
+#5
+#Group.router = MaxPropRouter 
+
+#6
+#Group.router = FirstContactRouter
+
+#Movement model's pseudo random number generator (default = 0)
+#If simulation run in batch mode for 5 times, the movement model using the following seed
+MovementModel.rngSeed = [13;27]
+
+Group.bufferSize = [4M;8M;16M;32M;64M]
+
+#[1M;2M;4M;8M;16M;32M;64M;128M]
+
+Group.msgTtl = [50; 100; 150; 200; 250; 300; 350]
+#50, 100, 150, 200, 250, 300, 350, 400, 450, 500
+
+
+# 1x2x3x5x7=210
+
+

@@ -1,0 +1,20 @@
+Message stats for scenario CCNSEC_replay_antiReplay_41
+sim_time: 43200.1000
+created: 2836
+started: 22536
+relayed: 15375
+aborted: 7160
+dropped: 13362
+removed: 0
+delivered: 1342
+delivery_prob: 0.4732
+response_prob: 0.0000
+overhead_ratio: 10.4568
+latency_avg: 5525.1911
+latency_med: 4217.4000
+hopcount_avg: 2.7280
+hopcount_med: 3
+buffertime_avg: 13935.7320
+buffertime_med: 15871.3000
+rtt_avg: NaN
+rtt_med: NaN

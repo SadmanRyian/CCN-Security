@@ -1,0 +1,181 @@
+# === ALL-IN-ONE: baseline + low + high + distributed attack, x3 seeds ===
+# Run with: ./one.sh -b 12 default_settings.txt CCN_scenario_ALL.txt   (Windows: one.bat -b 12 ...)
+#
+# How this works: Scenario.attackProfile, Scenario.nrofHostGroups,
+# InterestFlooder.interval, InterestFlooder.numOfMsgToGenerate, and
+# Group13.nrofHosts are all 4-element arrays (baseline;low;high;distributed),
+# so run index i picks column (i % 4). MovementModel.rngSeed is a
+# 3-element array [13;27;41], so run index i picks (i % 3). Since 4 and 3
+# share no common factor, running exactly 12 times visits every one of
+# the 4 profiles x 3 seeds combinations exactly once - no repeats, no
+# gaps. Each run gets its own report files because Scenario.name embeds
+# both %%Scenario.attackProfile%% and %%MovementModel.rngSeed%%.
+#
+# Run index -> (profile, seed) mapping produced by -b 12:
+#   0: baseline/13   1: low/27        2: high/41       3: distributed/13
+#   4: baseline/27   5: low/41        6: high/13       7: distributed/27
+#   8: baseline/41   9: low/13       10: high/27      11: distributed/41
+#
+# For the baseline runs, Group13 is simply never instantiated (only
+# Group1..Group{nrofHostGroups} get created), so InterestFlooder.interval /
+# numOfMsgToGenerate / Group13.nrofHosts at column 0 are never read - their
+# baseline-column values below are placeholders and don't affect anything.
+
+#############################	Producer    ###################################
+
+Producer.type = CCN_application
+Producer.cacheCapacity = 5000
+Producer.mode = 2
+Producer.avaCache = 1,1
+Producer.maxCarriedContent = 1
+Producer.staticCacheCapacity = 50
+Producer.staticCacheRange = 1,100
+Producer.seedStaticCache = 36
+Producer.enablePIT = true
+Producer.pitCapacity = 100
+Producer.interestLifetime = 3600
+
+Group1.nrofApplications = 1
+Group1.application1 = Producer
+Group1.nrofHosts = 15
+
+Group2.nrofApplications = 1
+Group2.application1 = Producer
+Group2.nrofHosts = 15
+
+Group3.nrofApplications = 1
+Group3.application1 = Producer
+Group3.nrofHosts = 1
+
+Group4.nrofApplications = 1
+Group4.application1 = Producer
+Group4.nrofHosts = 1
+
+Group5.nrofApplications = 1
+Group5.application1 = Producer
+Group5.nrofHosts = 1
+
+Group12.nrofApplications = 1
+Group12.application1 = Producer
+Group12.nrofHosts = 15
+
+
+#############################	Consumer   ####################################
+
+Consumer.type = CCN_application
+Consumer.mode = 1
+Consumer.cacheCapacity = 5000
+Consumer.seedQuery = 12
+Consumer.interestSize = 50
+Consumer.interval = 100
+Consumer.numOfMsgToGenerate = 20
+Consumer.queryRange = 1,100
+Consumer.queryDistribution = 2
+Consumer.avaCache = 0,1
+Consumer.maxCarriedContent = 1
+Consumer.enablePIT = true
+Consumer.pitCapacity = 100
+Consumer.interestLifetime = 3600
+
+Group6.nrofApplications = 1
+Group6.application1 = Consumer
+Group6.nrofHosts = 20
+
+Group11.nrofApplications = 1
+Group11.application1 = Consumer
+Group11.nrofHosts = 10
+
+
+#######################	Intermediate relay node ##################################
+
+Intermedia.type = CCN_application
+Intermedia.cacheCapacity = 500
+Intermedia.mode = 3
+Intermedia.avaCache = 0,1
+Intermedia.maxCarriedContent = 1
+Intermedia.enablePIT = true
+Intermedia.pitCapacity = 100
+Intermedia.interestLifetime = 3600
+
+Group7.nrofApplications = 1
+Group7.application1 = Intermedia
+Group7.nrofHosts = 10
+
+Group8.nrofApplications = 1
+Group8.application1 = Intermedia
+Group8.nrofHosts = 10
+
+Group9.nrofApplications = 1
+Group9.application1 = Intermedia
+Group9.nrofHosts = 20
+
+Group10.nrofApplications = 1
+Group10.application1 = Intermedia
+Group10.nrofHosts = 10
+
+
+############################    Global setting    #############################
+
+# Purely descriptive - not read by any Java code, exists only so
+# Scenario.name can embed a human-readable label per run, the same way
+# your original file embedded %%Group.router%%, %%Consumer.queryDistribution%%, etc.
+Scenario.attackProfile = [baseline;low;high;distributed]
+
+Scenario.name = IFA_%%Scenario.attackProfile%%_%%MovementModel.rngSeed%%
+Scenario.endTime = 43200
+
+# column 0 (baseline) = 12 -> Group13 never instantiated, no attacker.
+# columns 1-3 = 13 -> Group13 instantiated, attacker present.
+Scenario.nrofHostGroups = [12;13;13;13]
+
+Report.nrofReports = 3
+Report.report1 = CCN_application_reporter
+Report.report2 = MessageStatsReport
+Report.report3 = InterestFloodingReporter
+
+# Router/buffer/TTL pinned to single values so the only things varying
+# across the 12 runs are attack profile and mobility seed.
+Group.router = CCNRouter
+CCNRouter.nrofCopies = 10
+CCNRouter.binaryMode = true
+
+Group.bufferSize = 16M
+Group.msgTtl = 300
+
+# 3-element seed array, cycles every 3 runs independently of the
+# 4-element profile array above - this is what makes all 12 (profile,
+# seed) combinations appear exactly once across -b 12.
+MovementModel.rngSeed = [13;27;41]
+
+
+############################# InterestFlooder (Attacker) ####################################
+
+InterestFlooder.type = InterestFloodingApplication
+
+# Fixed across all profiles: same clean-thirds attack window inside the
+# 43200s (12h) run - 0-14400 pre, 14400-28800 attack, 28800-43200 post.
+InterestFlooder.attackStart = 14400
+InterestFlooder.attackEnd = 28800
+
+# column 0 (baseline) value is a placeholder, never read (no Group13).
+# column 1 (low): interval 500s.  columns 2-3 (high/distributed): interval 1s.
+InterestFlooder.interval = [500;500;1;1]
+
+# column 0 placeholder, unread. column 1 (low): budget 50 (>28 achievable
+# in the 14400s window at 500s interval, so interval stays the binding
+# constraint). columns 2-3 (high/distributed): budget 15000 (>14400
+# achievable at 1s interval, same reasoning).
+InterestFlooder.numOfMsgToGenerate = [50;50;15000;15000]
+
+InterestFlooder.attackQueryRange = 1000000,9999999
+InterestFlooder.attackPrefix = 0
+InterestFlooder.startSequence = 0
+InterestFlooder.seed = 99
+
+Group13.groupID = F
+Group13.nrofApplications = 1
+Group13.application1 = InterestFlooder
+# column 0 placeholder, unread. column 1-2 (low/high): 1 attacker host.
+# column 3 (distributed): 3 attacker hosts.
+Group13.nrofHosts = [1;1;1;3]
+Group13.interface1 = btInterface
