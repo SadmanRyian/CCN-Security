@@ -1,23 +1,16 @@
-import sys, os, extractApplicationReport
+import sys
+import os
+import extractApplicationReport
 
 def main():
     reportsDirectory = '../reports/'
-    for x in os.walk(reportsDirectory):
-        #print 'try', x[0]
-        flag = False
-        for y in x[2]:
-            if 'report' in y:
-                flag = True
-                break
+    for root, dirs, files in os.walk(reportsDirectory):
+        flag = any('report' in f.lower() for f in files)
         if flag:
-            #print 'calculating in', x[0][3:].replace('/', '_')
-            #paras = '-d ' + x[0] + ' -a query_count,response_count,average_interval -o ' + x[0][3:].replace('/', '_') + '_Result'
-            paras = '-d ' + x[0] + ' -a created,delivery_prob,latency_avg -o ' + x[0][3:].replace('/', '_') + '_Result'
-            #print paras.split(' ')
-            #extractApplicationReport.main(paras.split(' '))
-            os.system('python extractApplicationReport.py ' + paras) #not safe but useful
-            if x[0][-1:] != '_':
-                os.system('mv ' + x[0] + '/*D*.csv ~/workspace/one_dtn/results/new/MessageState')
+            paras = f'-d {root} -a created,delivery_prob,latency_avg -o {root[3:].replace("/", "_")}_Result'
+            os.system(f'python extractApplicationReport.py {paras}')
+            if root[-1:] != '_':
+                pass
 
 
 if __name__ == '__main__':

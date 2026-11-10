@@ -2,9 +2,7 @@ import sys, getopt, glob, os, csv, operator
 from os import listdir
 
 def main(argv):
-	#print argv
 	welcome()
-	#Arguments filtering
 	if len(argv) != 6:
 		usage()
 		sys.exit(2)
@@ -12,17 +10,15 @@ def main(argv):
 	try:
 		opts, args = getopt.getopt(argv, 'd:a:o:')
 	except getopt.GetoptError as err:
-		print err
+		print(err)
 		usage()
 		sys.exit(2)
-
-	#print opts
 
 	reportPath = ''
 	attributesList = []
 	outputCSVName = ''
 	fileType = 'MessageStatsReport'
-	#fileType = 'application_reporter'
+
 	for op, value in opts:
 		if op == '-d':
 			reportPath = value
@@ -31,119 +27,78 @@ def main(argv):
 		elif op == '-a':
 			attributesList = value.split(',')
 		else:
-			print "Invalid flag:", op
-
-	#print reportPath, attributesList, outputCSVName
+			print("Invalid flag:", op)
 
 	os.chdir(reportPath)
-	onlyAppFiles = glob.glob('*'+fileType+'*')
-	#print onlyAppFiles
-	outPutFile = open(outputCSVName+'.csv', 'w')
-	attrFileCSV = csv.writer(outPutFile, quotechar = '|', quoting = csv.QUOTE_MINIMAL, lineterminator= '\n')
+	onlyAppFiles = glob.glob('*' + fileType + '*')
+	with open(outputCSVName + '.csv', 'w', newline='', encoding='utf-8') as outPutFile:
+		attrFileCSV = csv.writer(outPutFile, quotechar='|', quoting=csv.QUOTE_MINIMAL, lineterminator='\n')
 
-	#Write the name of the attributes
-	attrNameList = [];
-	attrNameList.append('scenario')
-	for attr in attributesList:
-		attrNameList.append(attr)
+		# Write the name of the attributes
+		attrNameList = ['scenario']
+		for attr in attributesList:
+			attrNameList.append(attr)
 
-	#Rui\'s_scenario_routing-EpidemicRouter_seed-1_distribution-1_bufferSize-64M_msgTTL-500_c-5_p-10_i-35_PIT-false_RUI_application_reporter.txt
-	#scenarioExample = 'Rui\'s_scenario_routing-EpidemicRouter_seed-1_distribution-1_bufferSize-64M_msgTTL-500_c-5_p-10_i-35_PIT-false_RUI_application_reporter.txt'
-	scenarioExample = 'Rui\'s_scenario_routing-EpidemicRouter_seed-1_distribution-1_bufferSize-64M_msgTTL-500_c-5_p-10_i-35_PIT-false_' + fileType + '.txt'
-	#print getParametersInScenarioName(tempString)
-	#for attr in tempString.split('_')[2:]:
-		#attrNameList.append(attr)
-	#print attrNameList
+		scenarioExample = 'Rui\'s_scenario_routing-EpidemicRouter_seed-1_distribution-1_bufferSize-64M_msgTTL-500_c-5_p-10_i-35_PIT-false_' + fileType + '.txt'
 
+		allValue = [attrNameList]
+		numOfFileProc = 0
+		for attrFile in onlyAppFiles:
+			attrFileRow = [attrFile]
+			with open(attrFile, 'r', encoding='utf-8', errors='ignore') as tempFile:
+				numOfFileProc += 1
+				for line in tempFile:
+					for attr in attributesList:
+						if attr in line:
+							parts = line.rstrip().split(': ')
+							if len(parts) > 1:
+								attrFileRow.append(parts[1])
+							break
+			allValue.append(attrFileRow)
 
-	allValue = [attrNameList]
-	#Write the value of the attributes
-	numOfFileProc = 0
-	for attrFile in onlyAppFiles:
-		attrFileRow = [attrFile]
-		tempFile = open(attrFile, 'r');
-		numOfFileProc += 1
-		for line in tempFile:
-			for attr in attributesList:
-				if attr in line:
-					attrFileRow.append( line.rstrip().split(': ')[1] )
-					break
-		tempFile.close()
-		allValue.append(attrFileRow)
+		attrFileCSV.writerows(allValue)
 
-	attrFileCSV.writerows(allValue)
-	outPutFile.close()
-
-
-
-	#calculate average for different seed
+	# calculate average for different seed
 	avgDictionary = {}
 	avgDictionaryShowTime = {}
-	with open(outputCSVName+".csv") as totalResultFile:
-		totalResultFileReader = csv.reader(totalResultFile, delimiter =',')
-		next(totalResultFileReader, None) #skip header
+	with open(outputCSVName + ".csv", mode='r', encoding='utf-8', errors='ignore') as totalResultFile:
+		totalResultFileReader = csv.reader(totalResultFile, delimiter=',')
+		next(totalResultFileReader, None)  # skip header
 		for row_ in totalResultFileReader:
-			#print str(row_[1:])
+			if not row_:
+				continue
 			row = row_[0].split('_')
-			#print row
 			key = ''
-			for i in (row[4:]):
+			for i in row[4:]:
 				if '-' in i:
 					key += i + '_'
-			#print key
 
-			if key in avgDictionary.keys():
+			if key in avgDictionary:
 				avgDictionaryShowTime[key] += 1
 				tempSet = avgDictionary[key]
 				tempSetResult = [float(x) + float(y) for x, y in zip(tempSet, row_[1:])]
-
-				#print tempSet,row_[1:], tempSetResult
-
-
 				avgDictionary[key] = tempSetResult
-
 			else:
 				avgDictionaryShowTime[key] = 1
-				avgDictionary[key] = row_[1:]
-
-		totalResultFile.close()
-
-	#test code
-	#for key in avgDictionary.keys():
-		#print key, "=", avgDictionary[key], avgDictionaryShowTime[key]
+				avgDictionary[key] = [float(x) for x in row_[1:]]
 
 	for key in avgDictionary.keys():
-		avgDictionary[key] = [float(x)/float(avgDictionaryShowTime[key]) for x in avgDictionary[key]]
+		avgDictionary[key] = [float(x) / float(avgDictionaryShowTime[key]) for x in avgDictionary[key]]
 		avgDictionary[key] = forScenName(key) + avgDictionary[key]
-		#print avgDictionary[key]
 
 	routingType = getRoutingType(reportPath)
-	#print routingType
-	#print attrNameList
-	resultFile_D1 = open(outputCSVName + '_D1_AVG.csv', 'wb')
-	#resultFile_D2 = open(outputCSVName + '_D2_AVG.csv', 'wb')
-	resultFileCSVReader_D1 = csv.writer(resultFile_D1, quotechar = '|', quoting = csv.QUOTE_MINIMAL, lineterminator= '\n')
-	#resultFileCSVReader_D2 = csv.writer(resultFile_D2, quotechar = '|', quoting = csv.QUOTE_MINIMAL, lineterminator= '\n')
+	with open(outputCSVName + '_D1_AVG.csv', 'w', newline='', encoding='utf-8') as resultFile_D1:
+		resultFileCSVReader_D1 = csv.writer(resultFile_D1, quotechar='|', quoting=csv.QUOTE_MINIMAL, lineterminator='\n')
+		scenarioAttrList = getParametersInScenarioName(scenarioExample)
+		totalResultInArray_D1 = [["bufferSize"] + attrNameList[1:] + scenarioAttrList + ['routing']]
 
-	scenarioAttrList = getParametersInScenarioName(scenarioExample)
-	totalResultInArray_D1 = [["bufferSize"]+attrNameList[1:]+scenarioAttrList + ['routing']]
-	#totalResultInArray_D2 = [["bufferSize"]+attrNameList[1:]+scenarioAttrList]
-	for key in avgDictionary.keys():
-		valueInScenario = getValueFromScenario(key, scenarioAttrList)
-		#if "d1" in avgDictionary[key][0]:
-		#	totalResultInArray_D1.append([getBufferSize(avgDictionary[key][0])] + avgDictionary[key][1:] + valueInScenario)
-		totalResultInArray_D1.append([getBufferSize(avgDictionary[key][0])] + avgDictionary[key][1:] + valueInScenario + routingType)
-		#elif "d2" in avgDictionary[key][0]:
-	#		totalResultInArray_D2.append([getBufferSize(avgDictionary[key][0])] + avgDictionary[key][1:] + valueInScenario)
+		for key in avgDictionary.keys():
+			valueInScenario = getValueFromScenario(key, scenarioAttrList)
+			totalResultInArray_D1.append([getBufferSize(avgDictionary[key][0])] + avgDictionary[key][1:] + valueInScenario + routingType)
 
-	resultFileCSVReader_D1.writerows(totalResultInArray_D1)
-	#resultFileCSVReader_D2.writerows(totalResultInArray_D2)
-	resultFile_D1.close()
-	#resultFile_D2.close()
-	#print totalResultInArray_D1
+		resultFileCSVReader_D1.writerows(totalResultInArray_D1)
 
-	#print getBufferSize("d1_b32M_m500")
-	print numOfFileProc, "file(s) processed. Result stored in", reportPath+outputCSVName+".csv and " + reportPath+outputCSVName + '_D1_AVG.csv'
+	print(f"{numOfFileProc} file(s) processed. Result stored in {reportPath}{outputCSVName}.csv and {reportPath}{outputCSVName}_D1_AVG.csv")
 
 
 def getRoutingType(path):
@@ -165,34 +120,33 @@ def getParametersInScenarioName(scenario):
 			result.append(attr.split('-')[0])
 	return result
 
+
 def getBufferSize(scenarioName):
 	return scenarioName[scenarioName.find("b") + 1 : scenarioName.find("M")]
+
 
 def forScenName(longName):
 	longNameList = longName.split('_')
 	longNameList = [i.split('-')[0][0] + i.split('-')[1] for i in longNameList[:-1]]
-
-	result = ''
-	for x in longNameList:
-		result += x + '_'
-	result = result[:-1]
+	result = '_'.join(longNameList)
 	return [result]
 
 
-
 def welcome():
-	#Welcome msg
-	print "\n**************************************************"
-	print "** Welcome to Application Reporter Extractor    **"
-	print "** This program extracts the attributes(-a) 	**\n** from all application reports in direcotry(-d)**\n** to one csv file(-o) 				**"
-	print "**************************************************\n"
+	print("\n**************************************************")
+	print("** Welcome to Application Reporter Extractor    **")
+	print("** This program extracts the attributes(-a)     **\n** from all application reports in directory(-d)**\n** to one csv file(-o)                          **")
+	print("**************************************************\n")
+
 
 def usage():
-	print "Usage: python extract.py -d reportsDirectory -a attributesList -o fileNamePrefix"
-	print "Example: python extractApplicationReport.py -d ../reports/ -a \"query_count,response_count\" -o ApplicationReport"
+	print("Usage: python extractApplicationReport.py -d reportsDirectory -a attributesList -o fileNamePrefix")
+	print("Example: python extractApplicationReport.py -d ../reports/ -a \"query_count,response_count\" -o ApplicationReport")
+
 
 def done():
-	print "Done!"
+	print("Done!")
+
 
 if __name__ == "__main__":
 	main(sys.argv[1:])
